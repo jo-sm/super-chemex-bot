@@ -2,19 +2,45 @@
 
 const contentful = require('./contentful')
 const slack = require('./slack')
+const deviceID = 'G030MD025452LHCJ';
+
+/*
+{ 
+  serialNumber: 'G030MD025452LHCJ',
+  batteryVoltage: '1737mV',
+  clickType: 'SINGLE'
+}
+ */
 
 exports.handler = (event) => {
-  contentful.getAll().then(function (data) {
-    const {channel} = data.configuration[event.serialNumber]
-    const randomMessageIdx = Math.floor(Math.random() * data.message.length)
-    const {message} = data.message[randomMessageIdx]
+  const start = new Date();
 
-    return slack.send(channel, message)
-  })
-  .then(function(res) {
-    console.log('Message sent: ', res)
-  })
-  .catch(function (error) {
-    console.error(error);
-  })
+  contentful.withEntries().then(function(def) {
+    return def.updateStats(start).then(function(num) {
+      return def.getConfiguration().then(function(config) {
+        return [num, config];
+      });
+    }).then(function(values) {
+      const num = values[0];
+      const config = values[1];
+
+      return def.getMessagesFor(num).then(function(messages) {
+        return [config, messages];
+      });
+    }).then(function(values) {
+      const { slackChannel } = values[0];
+      const messages = values[1];
+
+      const randomMessageIdx = Math.floor(Math.random() * messages.length);
+
+      const message = messages[randomMessageIdx];
+
+      return slack.send(slackChannel, message);
+    }).then(function(resp) {
+      console.info('Message sent', resp);
+      console.info(`Total time: ${(new Date()) - start}`);
+    }).catch(function(error) {
+      console.error(error);
+    });
+  });
 }
