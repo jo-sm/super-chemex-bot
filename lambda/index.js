@@ -1,5 +1,4 @@
 const contentfulManagement = require('contentful-management');
-const contentful = require('contentful');
 
 const { run, getAllEntries, updateStats, getConfigurationFor, getMessagesFor, getAsset } = require('./utils');
 const { send } = require('./slack');
@@ -22,7 +21,6 @@ process.on('unhandledRejection', error => {
 
 exports.handler = (event, context, cb) => {
   // Env variables
-  const deliveryToken = process.env.CONTENTFUL_ACCESS_TOKEN;
   const managementToken = process.env.CONTENTFUL_MANAGEMENT_ACCESS_TOKEN;
   const spaceId = process.env.CONTENTFUL_SPACE_ID;
   const slackToken = process.env.SLACK_API_TOKEN
