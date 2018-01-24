@@ -1,9 +1,12 @@
+const { readFile: readFileWithCb } = require('fs');
+
 module.exports = {
   getAllEntries,
   updateStats,
   getConfigurationFor,
   getMessagesFor,
   getAsset,
+  readFile,
   run
 }
 
@@ -101,7 +104,7 @@ function getEntriesFor(entries, contentType) {
   Returns the configuration values for a given Amazon IoT
   device serial number.
  */
-function getConfigurationFor(entries, deviceSerialNumber) {
+function getConfigurationFor(entries, deviceSerialNumber, testing) {
   return getEntriesFor(entries, 'configuration').then(function(entries) {
     const entry = entries.find(function(entry) {
       return entry.fields && 
@@ -113,8 +116,16 @@ function getConfigurationFor(entries, deviceSerialNumber) {
       return Promise.reject(new Error(`Could not find "configuration" entry with serial number ${deviceSerialNumber}`));
     }
 
+    let slackChannel;
+
+    if (testing && entry.fields.testChannel) {
+      slackChannel = entry.fields.testChannel['en-US'];
+    } else {
+      slackChannel = entry.fields.slackChannel['en-US'];
+    }
+
     return {
-      slackChannel: entry.fields.slackChannel['en-US'],
+      slackChannel,
       deviceSerialNumber: entry.fields.deviceSerialNumber['en-US']
     }
   });
@@ -237,6 +248,18 @@ function updateStats(client, entries) {
     return entry.fields.numberOfPresses['en-US'];
   });
 };
+
+function readFile(filename) {
+  return new Promise(function(resolve, reject) {
+    readFileWithCb(filename, function(err, file) {
+      if (err) {
+        return reject(err);
+      } else {
+        return resolve(file.toString());
+      }
+    });
+  });
+}
 
 // Private
 

@@ -1,6 +1,6 @@
 const contentfulManagement = require('contentful-management');
 
-const { run, getAllEntries, updateStats, getConfigurationFor, getMessagesFor, getAsset } = require('./utils');
+const { run, getAllEntries, updateStats, getConfigurationFor, getMessagesFor, getAsset, readFile } = require('./utils');
 const { send } = require('./slack');
 
 /*
@@ -19,7 +19,12 @@ process.on('unhandledRejection', error => {
   console.error(error);
 });
 
-exports.handler = (event, context, cb) => {
+module.exports = {
+  handler,
+  test
+}
+
+function handler(event) {
   // Env variables
   const managementToken = process.env.CONTENTFUL_MANAGEMENT_ACCESS_TOKEN;
   const spaceId = process.env.CONTENTFUL_SPACE_ID;
@@ -30,7 +35,8 @@ exports.handler = (event, context, cb) => {
   const batteryVoltage = parseInt(event.batteryVoltage, 10);
   const {
     serialNumber,
-    debug
+    debug,
+    test
   } = event;
 
   // Contentful management client
@@ -43,7 +49,7 @@ exports.handler = (event, context, cb) => {
     const entries = yield getAllEntries(managementClient);
     const currentUsage = yield updateStats(managementClient, entries);
     const messages = yield getMessagesFor(entries, currentUsage);
-    const config = yield getConfigurationFor(entries, serialNumber);
+    const config = yield getConfigurationFor(entries, serialNumber, test);
 
     const { slackChannel } = config;
     const randomMessageIdx = Math.floor(Math.random() * messages.length);
@@ -62,4 +68,14 @@ exports.handler = (event, context, cb) => {
   }).catch(function(e) {
     console.error(e);
   });
+}
+
+function test() {
+  return readFile('test.json').then(function(file) {
+    const testJson = JSON.parse(file);
+
+    return handler(testJson);
+  }).catch(function(e) {
+    console.error('Could not load test.json');
+  })
 }
