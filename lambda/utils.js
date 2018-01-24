@@ -3,6 +3,7 @@ module.exports = {
   updateStats,
   getConfigurationFor,
   getMessagesFor,
+  getAsset,
   run
 }
 
@@ -134,7 +135,12 @@ function getMessagesFor(entries, num) {
       }
 
       if (entry.fields.order['en-US'] === num) {
-        memo.push(entry.fields.message['en-US']);
+        memo.push({
+          message: entry.fields.message['en-US'],
+          assetId: entry.fields.image 
+            && entry.fields.image['en-US'].sys
+            && entry.fields.image['en-US'].sys.id
+        });
       }
 
       return memo;
@@ -147,7 +153,12 @@ function getMessagesFor(entries, num) {
         }
 
         if (!entry.fields.order || entry.fields.order['en-US'] === 0) {
-          memo.push(entry.fields.message['en-US']);
+          memo.push({
+            message: entry.fields.message['en-US'],
+            assetId: entry.fields.image 
+              && entry.fields.image['en-US'].sys
+              && entry.fields.image['en-US'].sys.id
+          });
         }
 
         return memo;
@@ -156,6 +167,31 @@ function getMessagesFor(entries, num) {
 
     return messages;
   })
+}
+
+function getAsset(client, id) {
+  return getSpace(client).then(function(space) {
+    return space.getAsset(id);
+  }).then(function(asset) {
+    if (!asset.fields.title) {
+      return null;
+    }
+
+    if (!asset.fields.file || !asset.fields.file['en-US'] || !asset.fields.file['en-US'].url) {
+      return null;
+    }
+
+    const raw = asset.fields.file['en-US'].url.split('//')[1];
+    const url = `https://${raw}`;
+
+    return {
+      url,
+      title: asset.fields.title['en-US']
+    }
+  }).catch(function(e) {
+    // The asset isn't critical for the message
+    return null;
+  });
 }
 
 /*

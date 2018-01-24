@@ -1,7 +1,7 @@
 const contentfulManagement = require('contentful-management');
 const contentful = require('contentful');
 
-const { run, getAllEntries, updateStats, getConfigurationFor, getMessagesFor } = require('./utils');
+const { run, getAllEntries, updateStats, getConfigurationFor, getMessagesFor, getAsset } = require('./utils');
 const { send } = require('./slack');
 
 /*
@@ -31,7 +31,7 @@ exports.handler = (event, context, cb) => {
   const start = new Date();
   const batteryVoltage = parseInt(event.batteryVoltage, 10);
   const {
-    deviceSerialNumber,
+    serialNumber,
     debug
   } = event;
 
@@ -45,13 +45,19 @@ exports.handler = (event, context, cb) => {
     const entries = yield getAllEntries(managementClient);
     const currentUsage = yield updateStats(managementClient, entries);
     const messages = yield getMessagesFor(entries, currentUsage);
-    const config = yield getConfigurationFor(entries, deviceSerialNumber);
+    const config = yield getConfigurationFor(entries, serialNumber);
 
     const { slackChannel } = config;
     const randomMessageIdx = Math.floor(Math.random() * messages.length);
-    const message = messages[randomMessageIdx];
+    const { message, assetId } = messages[randomMessageIdx];
 
-    return send(slackToken, slackChannel, message);
+    let asset;
+
+    if (assetId) {
+      asset = yield getAsset(managementClient, assetId);
+    }
+
+    return send(slackToken, slackChannel, message, asset);
   }).then(function(sentMessage) {
     console.info('Message sent: ', sentMessage);
     console.info(`Total time: ${(new Date()) - start}`);
