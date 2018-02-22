@@ -5,6 +5,7 @@ module.exports = {
   updateStats,
   getConfigurationFor,
   getMessagesFor,
+  chooseBestMessage,
   getAsset,
   readFile,
   run
@@ -131,49 +132,72 @@ function getConfigurationFor(entries, deviceSerialNumber, testing) {
   Gets the messages for the given `num`.
 
   If the Message entry has an order equal to `num`, or
-  if there is no order defined on the entry, the `message`
-  field will be added to the result array.
+  if there is no order defined on the entry, the entry
+  will be positively filtered.
  */
 function getMessagesFor(entries, num) {
   return getEntriesFor(entries, 'message').then(function(entries) {
-    let messages =  entries.reduce(function(memo, entry) {
-      if (!entry.fields.message || !entry.fields.order) {
-        return memo;
+    return entries.filter(function(entry) {
+      if (!entry.fields.message) {
+        return false;
       }
 
-      if (entry.fields.order['en-US'] === num) {
-        memo.push({
-          message: entry.fields.message['en-US'],
-          assetId: entry.fields.image 
-            && entry.fields.image['en-US'].sys
-            && entry.fields.image['en-US'].sys.id
-        });
+      if (!entry.fields.order || entry.fields.order['en-US'] === num) {
+        return true;
       }
+    });
+  })
+}
 
-      return memo;
-    }, []);
+/*
+  Chooses the message with the least usage, as well as
+  updating the message usage.
+ */
+function chooseBestMessage(entries) {
+  const lowestCountEntries = entries.reduce(function(memo, entry) {
+    // Push the first entry always
+    if (memo.length === 0) {
+      memo.push(entry);
+    } else if (!entry.fields.usage) {
+      // If there's no usage, push this entry
+      // and remove any others with usage
+      memo.push(entry);
 
-    if (messages.length === 0) {
-      messages =  entries.reduce(function(memo, entry) {
-        if (!entry.fields.message) {
-          return memo;
-        }
+      memo = memo.filter(function(entry) {
+        return !entry.fields.usage;
+      });
+    } else {
+      // There is a usage defined, see if it's lowest
+      const entryUsage = entry.fields.usage['en-US'];
+      const entriesLowerUsage = memo.filter(function(entry) {
+        return !entry.fields.usage || entry.fields.usage['en-US'] < entryUsage;
+      });
 
-        if (!entry.fields.order || entry.fields.order['en-US'] === 0) {
-          memo.push({
-            message: entry.fields.message['en-US'],
-            assetId: entry.fields.image 
-              && entry.fields.image['en-US'].sys
-              && entry.fields.image['en-US'].sys.id
-          });
-        }
-
-        return memo;
-      }, []);
+      if (!entriesLowerUsage.length) {
+        memo.push(entry);
+      }
     }
 
-    return messages;
-  })
+    return memo;
+  }, []);
+
+  // Choose a message from the list at random
+  const randomIndex = Math.floor(Math.random() * lowestCountEntries.length);
+  const entry = lowestCountEntries[randomIndex];
+
+  // Update its usage
+  entry.fields.usage ? entry.fields.usage['en-US']++ : entry.fields.usage = { 'en-US': 1 };
+
+  return entry.update().then(function(entry) {
+    return entry.publish();
+  }).then(function(entry) {
+    return {
+      message: entry.fields.message['en-US'],
+      assetId: entry.fields.image 
+        && entry.fields.image['en-US'].sys
+        && entry.fields.image['en-US'].sys.id
+    };
+  });
 }
 
 function getAsset(client, id) {

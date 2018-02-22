@@ -1,17 +1,17 @@
 const contentfulManagement = require('contentful-management');
 
-const { run, getAllEntries, updateStats, getConfigurationFor, getMessagesFor, getAsset, readFile } = require('./utils');
+const {
+  run,
+  getAllEntries,
+  updateStats,
+  getConfigurationFor,
+  getMessagesFor,
+  chooseBestMessage,
+  getAsset,
+  readFile 
+} = require('./utils');
+
 const { send } = require('./slack');
-
-/*
-Event from Amazon IoT button click:
-
-{ 
-  serialNumber: 'G030MD025452LHCJ',
-  batteryVoltage: '1737mV',
-  clickType: 'SINGLE' // Could also be 'DOUBLE'
-}
- */
 
 process.on('unhandledRejection', error => {
   // Will print "unhandledRejection err is not defined"
@@ -48,14 +48,14 @@ function handler(event) {
   run(function* () {
     const entries = yield getAllEntries(managementClient);
     const currentUsage = yield updateStats(managementClient, entries, serialNumber);
-    const messages = yield getMessagesFor(entries, currentUsage);
+    const messageEntries = yield getMessagesFor(entries, currentUsage);
     const config = yield getConfigurationFor(entries, serialNumber, test);
 
     const { slackChannel, testChannel } = config;
-    const randomMessageIdx = Math.floor(Math.random() * messages.length);
+    const bestMessage = yield chooseBestMessage(messageEntries);
 
-    const { assetId } = messages[randomMessageIdx];
-    let { message } = messages[randomMessageIdx];
+    const { assetId } = bestMessage;
+    let { message } = bestMessage;
 
     let asset;
     let channel;
