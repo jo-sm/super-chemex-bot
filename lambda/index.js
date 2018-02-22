@@ -82,9 +82,11 @@ function handler(event) {
   });
 }
 
-function test() {
+function test(serialNumber) {
   return readFile('test.json').then(function(file) {
     const testJson = JSON.parse(file);
+
+    testJson.serialNumber = serialNumber;
 
     return handler(testJson);
   }).catch(function(e) {
