@@ -116,16 +116,12 @@ function getConfigurationFor(entries, deviceSerialNumber, testing) {
       return Promise.reject(new Error(`Could not find "configuration" entry with serial number ${deviceSerialNumber}`));
     }
 
-    let slackChannel;
-
-    if (testing && entry.fields.testChannel) {
-      slackChannel = entry.fields.testChannel['en-US'];
-    } else {
-      slackChannel = entry.fields.slackChannel['en-US'];
-    }
+    const slackChannel = entry.fields.slackChannel && entry.fields.slackChannel['en-US'];
+    const testChannel = entry.fields.testChannel && entry.fields.testChannel['en-US'];
 
     return {
       slackChannel,
+      testChannel,
       deviceSerialNumber: entry.fields.deviceSerialNumber['en-US']
     }
   });
@@ -212,13 +208,14 @@ function getAsset(client, id) {
   the Amazon Lambda function, it will immediately resolve
   a promise with the value of 1.
 */
-function updateStats(client, entries) {
+function updateStats(client, entries, deviceSerialNumber) {
   return getEntriesFor(entries, 'usageData').then(function(entries) {
     return entries.filter(function(entry) {
-      return entry.fields.date['en-US'] === getDate();
+      return entry.fields.date['en-US'] === getDate() &&
+        entry.fields.deviceSerialNumber &&
+        entry.fields.deviceSerialNumber['en-US'] === deviceSerialNumber;
     });
   }).then(function(entries) {
-    // console.log(entries.length);
     if (entries.length == 0) {
       // There is no usage data today, create one
       return getSpace(client).then(function(space) {
@@ -232,6 +229,9 @@ function updateStats(client, entries) {
             },
             numberOfPresses: {
               'en-US': 1
+            },
+            deviceSerialNumber: {
+              'en-US': deviceSerialNumber
             }
           }
         });

@@ -47,21 +47,33 @@ function handler(event) {
 
   run(function* () {
     const entries = yield getAllEntries(managementClient);
-    const currentUsage = yield updateStats(managementClient, entries);
+    const currentUsage = yield updateStats(managementClient, entries, serialNumber);
     const messages = yield getMessagesFor(entries, currentUsage);
     const config = yield getConfigurationFor(entries, serialNumber, test);
 
-    const { slackChannel } = config;
+    const { slackChannel, testChannel } = config;
     const randomMessageIdx = Math.floor(Math.random() * messages.length);
-    const { message, assetId } = messages[randomMessageIdx];
+
+    const { assetId } = messages[randomMessageIdx];
+    let { message } = messages[randomMessageIdx];
 
     let asset;
+    let channel;
 
     if (assetId) {
       asset = yield getAsset(managementClient, assetId);
     }
 
-    return send(slackToken, slackChannel, message, asset);
+    // For testing, it's good to see which channel the button
+    // would message
+    if (test) {
+      channel = testChannel || slackChannel;
+      message = `[${slackChannel}] ${message}`
+    } else {
+      channel = slackChannel;
+    }
+
+    return send(slackToken, channel, message, asset);
   }).then(function(sentMessage) {
     console.info('Message sent: ', sentMessage);
     console.info(`Total time: ${(new Date()) - start}`);
@@ -76,6 +88,6 @@ function test() {
 
     return handler(testJson);
   }).catch(function(e) {
-    console.error('Could not load test.json');
+    console.error(e);
   })
 }
