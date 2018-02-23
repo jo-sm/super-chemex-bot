@@ -1,4 +1,5 @@
 const { readFile: readFileWithCb } = require('fs');
+const moment = require('moment');
 
 module.exports = {
   getAllEntries,
@@ -129,16 +130,31 @@ function getConfigurationFor(entries, deviceSerialNumber, testing) {
 }
 
 /*
-  Gets the messages for the given `num`.
+  Gets the messages for the given `num` and the current time.
 
   If the Message entry has an order equal to `num`, or
-  if there is no order defined on the entry, the entry
-  will be positively filtered.
+  if there is no order defined on the entry, and the current
+  time is in the defined time on the Message entry, it will
+  be positively filtered.
  */
-function getMessagesFor(entries, num) {
+function getMessagesFor(entries, num, tz) {
+  const date = getDate();
+  const startOfDay = moment.parseZone(`${date}T00:00:00${tz}`);
+
+  const isMorning = new moment().utcOffset(tz).unix() - startOfDay.unix() < 43200;
+  const isAfternoon = new moment().utcOffset(tz).unix() - startOfDay.unix() >= 43200;
+
   return getEntriesFor(entries, 'message').then(function(entries) {
     return entries.filter(function(entry) {
       if (!entry.fields.message) {
+        return false;
+      }
+
+      if (entry.fields.timeOfDay['en-US'] === 'morning' && !isMorning) {
+        return false;
+      }
+
+      if (entry.fields.timeOfDay['en-US'] === 'afternoon' && !isAfternoon) {
         return false;
       }
 

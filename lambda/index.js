@@ -28,7 +28,8 @@ function handler(event) {
   // Env variables
   const managementToken = process.env.CONTENTFUL_MANAGEMENT_ACCESS_TOKEN;
   const spaceId = process.env.CONTENTFUL_SPACE_ID;
-  const slackToken = process.env.SLACK_API_TOKEN
+  const slackToken = process.env.SLACK_API_TOKEN;
+  const tz = process.env.TZ;
 
   // Invocation variables
   const start = new Date();
@@ -48,7 +49,7 @@ function handler(event) {
   run(function* () {
     const entries = yield getAllEntries(managementClient);
     const currentUsage = yield updateStats(managementClient, entries, serialNumber);
-    const messageEntries = yield getMessagesFor(entries, currentUsage);
+    const messageEntries = yield getMessagesFor(entries, currentUsage, tz);
     const config = yield getConfigurationFor(entries, serialNumber, test);
 
     const { slackChannel, testChannel } = config;
